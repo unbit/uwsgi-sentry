@@ -87,7 +87,7 @@ route-if = isequal:${REQUEST_METHOD};PUT alarm:notputplease PUT IS NOT ALLOWED !
 Triggering sentry events with hooks
 ===================================
 
-uWSGI hooks (http://uwsgi-docs.readthedocs.org/en/latest/Hooks.html) are special action that can be triggered in the various server phases.
+uWSGI hooks (http://uwsgi-docs.readthedocs.org/en/latest/Hooks.html) are special actions that can be triggered in the various server phases.
 
 The following example triggers a sentry event when the uWSGI instance starts and when its first worker is ready to accept requests:
 
