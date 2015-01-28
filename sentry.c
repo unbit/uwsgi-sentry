@@ -69,6 +69,9 @@ struct sentry_config {
 	char *no_verify;
 
 	char *debug;
+
+	char *exception_type;
+	char *exception_value;
 };
 
 #define skv(x) #x, &sc->x
@@ -86,6 +89,8 @@ static int sentry_config_do(char *arg, struct sentry_config *sc) {
 		skv(release),
 		skv(no_verify),
 		skv(debug),
+		skv(exception_type),
+		skv(exception_value),
 	NULL)) {
 		uwsgi_log("[sentry] unable to parse sentry options\n");
 		return -1;
@@ -112,6 +117,10 @@ static void sentry_config_free(struct sentry_config *sc) {
         sc_free(culprit);
         sc_free(server_name);
         sc_free(release);
+
+        sc_free(exception_type);
+        sc_free(exception_value);
+
 	free(sc);
 }
 
@@ -286,6 +295,28 @@ static void sentry_request(struct sentry_config *sc, char *msg, size_t len) {
 		if (uwsgi_buffer_append(ub_body, "\"", 1)) goto end;
 	}
 
+	if (sc->exception_type || sc->exception_value) {
+		if (uwsgi_buffer_append(ub_body, ",\"exception\":[{", 15)) goto end;
+		if (sc->exception_type) {
+			if (uwsgi_buffer_append(ub_body, "\"type\":\"", 8)) goto end;
+			if (uwsgi_buffer_append_json(ub_body, sc->exception_type, strlen(sc->exception_type))) goto end;
+			if (sc->exception_value) {
+				if (uwsgi_buffer_append(ub_body, "\",", 2)) goto end;
+			}
+			else {
+				if (uwsgi_buffer_append(ub_body, "\"", 1)) goto end;
+			}
+		}
+
+		if (sc->exception_value) {
+			if (uwsgi_buffer_append(ub_body, "\"value\":\"", 9)) goto end;
+                        if (uwsgi_buffer_append_json(ub_body, sc->exception_value, strlen(sc->exception_value))) goto end;
+			if (uwsgi_buffer_append(ub_body, "\"", 1)) goto end;
+		}
+
+		if (uwsgi_buffer_append(ub_body, "}]", 2)) goto end;
+	}
+
 	if (uwsgi_buffer_append(ub_body, ",\"server_name\":\"", 16)) goto end;
 	if (sc->server_name) {
 		if (uwsgi_buffer_append_json(ub_body, sc->release, strlen(sc->release))) goto end;
@@ -297,7 +328,7 @@ static void sentry_request(struct sentry_config *sc, char *msg, size_t len) {
 	if (uwsgi_buffer_append(ub_body, "\",\"timestamp\":\"", 15)) goto end;
 	char tm[sizeof("0000-00-00T00:00:00")];
 	strftime(tm, sizeof(tm), "%FT%T", gmtime(&now));
-	if (uwsgi_buffer_append(ub_body, tm, strlen(tm))) goto end;
+	if (uwsgi_buffer_append_json(ub_body, tm, strlen(tm))) goto end;
 
 	if (uwsgi_buffer_append(ub_body, "\",\"message\":\"", 13)) goto end;
 	if (sc->message) {
