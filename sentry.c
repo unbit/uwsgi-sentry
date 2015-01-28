@@ -236,6 +236,11 @@ static void sentry_request(struct sentry_config *sc, char *msg, size_t len) {
 	if (!header) goto end;
         headers = header;
 
+	// User-Agent
+	header = curl_slist_append(headers, "User-Agent: uwsgi-sentry");
+	if (!header) goto end;
+        headers = header;
+
 	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
 	// prepare the json
