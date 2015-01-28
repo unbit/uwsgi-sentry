@@ -20,6 +20,8 @@ The plugin is uWSGI 2.0 friendly and requires libcurl development headers:
 uwsgi --build-plugin https://github.com/unbit/uwsgi-sentry
 ```
 
+this will result in sentry_plugin.so in the current directory (copy it to your uwsgi plugins directory or ensure to specify its absolute path in the plugin option of your configuration)
+
 Sending alarms to sentry
 ========================
 
