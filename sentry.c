@@ -254,6 +254,35 @@ static size_t sentry_curl_writefunc(void *ptr, size_t size, size_t nmemb, void *
 	return len;
 }
 
+static int sentry_add_kv(struct uwsgi_buffer *ub, char *items) {
+	size_t i, argc = 0;
+        char **argv = uwsgi_split_quoted(items, strlen(items), ";", &argc);
+	if (!argv) return -1;
+
+	int ret = -1;
+
+	for(i=0;i<argc;i++) {
+		char *value = argv[i];
+		char *colon = strchr(value, ':');
+		if (!colon) goto destroy;
+		if (uwsgi_buffer_append(ub, "\"", 1)) goto destroy;
+		if (uwsgi_buffer_append(ub, value, colon-value)) goto destroy;
+		if (uwsgi_buffer_append(ub, "\":\"", 3)) goto destroy;
+		if (uwsgi_buffer_append(ub, colon+1, strlen(colon+1))) goto destroy;
+		if (uwsgi_buffer_append(ub, "\"", 1)) goto destroy;
+		if (i+1 < argc) {
+			 if (uwsgi_buffer_append(ub, ",", 1)) goto destroy;
+		}
+	}
+	ret = 0;
+destroy:
+        for(i=0;i<argc;i++) {
+                free(argv[i]);
+        }
+        free(argv);
+	return ret;
+}
+
 static void sentry_request(struct sentry_config *sc, char *msg, size_t len) {
 	CURL *curl = curl_easy_init();	
 	if (!curl) return;
@@ -350,6 +379,12 @@ static void sentry_request(struct sentry_config *sc, char *msg, size_t len) {
 		if (uwsgi_buffer_append(ub_body, ",\"release\":\"", 12)) goto end;
 		if (uwsgi_buffer_append_json(ub_body, sc->release, strlen(sc->release))) goto end;
 		if (uwsgi_buffer_append(ub_body, "\"", 1)) goto end;
+	}
+
+	if (sc->tags) {
+		if (uwsgi_buffer_append(ub_body, ",\"tags\":{", 9)) goto end;
+		if (sentry_add_kv(ub_body, sc->tags)) goto end;
+		if (uwsgi_buffer_append(ub_body, "}", 1)) goto end;	
 	}
 
 	if (sc->exception_type || sc->exception_value) {
