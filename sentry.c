@@ -77,6 +77,8 @@ struct sentry_config {
 #define skv(x) #x, &sc->x
 #define sc_free(x) if (sc->x) free(sc->x);
 
+static void sentry_request(struct sentry_config *, char *, size_t);
+
 static int sentry_config_do(char *arg, struct sentry_config *sc) {
 	if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
 		skv(dsn),
@@ -182,10 +184,54 @@ error:
         return -1;
 }
 
+static void sentry_exception_parser(char *key, uint16_t keylen, char *value, uint16_t vallen, void *data) {
+	struct sentry_config *sc = (struct sentry_config *) data;
+
+	if (!uwsgi_strncmp(key, keylen, "class", 5)) {
+		if (sc->exception_type) free(sc->exception_type);
+		sc->exception_type = uwsgi_concat2n(value, vallen, "", 0);
+		return;
+	}
+
+	if (!uwsgi_strncmp(key, keylen, "msg", 3)) {
+                if (sc->exception_value) free(sc->exception_value);
+                sc->exception_value = uwsgi_concat2n(value, vallen, "", 0);
+                return;
+        }
+
+	if (!uwsgi_strncmp(key, keylen, "repr", 4)) {
+                if (sc->message) free(sc->message);
+                sc->message = uwsgi_concat2n(value, vallen, "", 0);
+                return;
+        }
+}
+
 static int sentry_exception_handler(struct uwsgi_exception_handler_instance *uehi, char *buf, size_t len) {
-	uwsgi_log("ARG = %s\n", uehi->arg);
-        //uwsgi_hooked_parse(buf, len, uwsgi_exception_handler_log_parser, NULL);
+	struct sentry_config *sc = (struct sentry_config *) uehi->custom_ptr;
+	if (!uehi->configured) {
+        	sc = uwsgi_calloc(sizeof(struct sentry_config));
+        	if (sentry_config_do(uehi->arg, sc)) {
+                	goto error;
+        	}
+
+        	if (sentry_dsn_parse(sc)) {
+                	goto error;
+        	}
+
+		uehi->custom_ptr = sc;
+		uehi->configured = 1;
+	}
+
+        uwsgi_hooked_parse(buf, len, sentry_exception_parser, sc);
+
+        // empty messae in case sc->message is not defined
+        sentry_request(sc, "", 0);
+
         return 0;
+error:
+	sentry_config_free(sc);
+	return -1;
+	
 }
 
 static size_t sentry_curl_writefunc(void *ptr, size_t size, size_t nmemb, void *data) {
