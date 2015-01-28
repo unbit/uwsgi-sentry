@@ -72,6 +72,9 @@ struct sentry_config {
 
 	char *exception_type;
 	char *exception_value;
+
+	char *tags;
+	char *extra;
 };
 
 #define skv(x) #x, &sc->x
@@ -93,6 +96,8 @@ static int sentry_config_do(char *arg, struct sentry_config *sc) {
 		skv(debug),
 		skv(exception_type),
 		skv(exception_value),
+		skv(tags),
+		skv(extra),
 	NULL)) {
 		uwsgi_log("[sentry] unable to parse sentry options\n");
 		return -1;
@@ -122,6 +127,9 @@ static void sentry_config_free(struct sentry_config *sc) {
 
         sc_free(exception_type);
         sc_free(exception_value);
+
+        sc_free(tags);
+        sc_free(extra);
 
 	free(sc);
 }
