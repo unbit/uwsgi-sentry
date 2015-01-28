@@ -177,7 +177,10 @@ static int sentry_dsn_parse(struct sentry_config *sc) {
 	sc->key = uwsgi_concat2n(auth, colon-auth, "", 0);
 	sc->secret = uwsgi_concat2n(colon+1, at-(colon+1), "", 0);
 
-	uwsgi_log("[sentry] parsed url: %s\n", sc->url);
+	if (sc->debug) {
+		uwsgi_log("[sentry] parsed url: %s\n", sc->url);
+	}
+
 	return 0;
 error:
 	uwsgi_log("[sentry] unable to parse dsn: %s\n", sc->dsn); 
@@ -224,7 +227,7 @@ static int sentry_exception_handler(struct uwsgi_exception_handler_instance *ueh
 
         uwsgi_hooked_parse(buf, len, sentry_exception_parser, sc);
 
-        // empty messae in case sc->message is not defined
+        // empty message in case sc->message is not defined
         sentry_request(sc, "", 0);
 
         return 0;
@@ -448,8 +451,8 @@ static int sentry_hook(char *arg) {
 		goto end;
         }
 
-	// empty messae in case sc->message is not defined
-	// we do not check for errors here as we do nto want to destroy the
+	// empty message in case sc->message is not defined
+	// we do not check for errors here as we do not want to destroy the
 	// instace if the sentry server is down
 	sentry_request(sc, "", 0);
 	ret = 0;
@@ -458,10 +461,47 @@ end:
 	return ret;
 }
 
+#ifdef UWSGI_ROUTING
+static int sentry_router_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+	struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+	// continue even on memory error
+	if (!ub) return UWSGI_ROUTE_CONTINUE;
+
+	struct sentry_config *sc = uwsgi_calloc(sizeof(struct sentry_config));
+	if (sentry_config_do(ub->buf, sc)) {
+                goto end;
+        }
+
+	if (sentry_dsn_parse(sc)) {
+                goto end;
+        }
+
+	// empty message in case sc->message is not defined
+	sentry_request(sc, "", 0);
+end:
+	sentry_config_free(sc);
+	uwsgi_buffer_destroy(ub);
+	return UWSGI_ROUTE_CONTINUE;
+}
+
+static int sentry_router(struct uwsgi_route *ur, char *args) {
+	ur->func = sentry_router_func;
+        ur->data = args;
+        ur->data_len = strlen(args);
+	return 0;
+}
+#endif
+
 static void sentry_register() {
 	uwsgi_register_exception_handler("sentry", sentry_exception_handler);
 	uwsgi_register_alarm("sentry", sentry_alarm_init, sentry_alarm_func);
 	uwsgi_register_hook("sentry", sentry_hook);
+#ifdef UWSGI_ROUTING
+	uwsgi_register_router("sentry", sentry_router);
+#endif
 }
 
 struct uwsgi_plugin sentry_plugin = {
