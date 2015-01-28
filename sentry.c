@@ -393,6 +393,12 @@ static void sentry_request(struct sentry_config *sc, char *msg, size_t len) {
 		if (uwsgi_buffer_append(ub_body, "}", 1)) goto end;	
 	}
 
+	if (sc->extra) {
+		if (uwsgi_buffer_append(ub_body, ",\"extra\":{", 10)) goto end;
+		if (sentry_add_kv(ub_body, sc->extra)) goto end;
+		if (uwsgi_buffer_append(ub_body, "}", 1)) goto end;	
+	}
+
 	if (sc->exception_type || sc->exception_value) {
 		if (uwsgi_buffer_append(ub_body, ",\"exception\":[{", 15)) goto end;
 		if (sc->exception_type) {
