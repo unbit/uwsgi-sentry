@@ -121,7 +121,7 @@ exception-handler = sentry:dsn=https://b70a31b3510c4cf793964a185cfe1fd0:b7d80b52
 
 remember: exception handlers can be stacked, just specify multiple `exception-handler` options
 
-Advanced usage as internal routingaction (dangerous)
+Advanced usage as internal routing action (dangerous)
 ====================================================
 
 This is marked as "dangerous" because libcurl does a blocking session, so your request will be blocked while waiting for the sentry server to respond.
