@@ -75,6 +75,7 @@ struct sentry_config {
 
 	char *tags;
 	char *extra;
+	char *timeout;
 };
 
 #define skv(x) #x, &sc->x
@@ -98,6 +99,7 @@ static int sentry_config_do(char *arg, struct sentry_config *sc) {
 		skv(exception_value),
 		skv(tags),
 		skv(extra),
+		skv(timeout),
 	NULL)) {
 		uwsgi_log("[sentry] unable to parse sentry options\n");
 		return -1;
@@ -130,6 +132,7 @@ static void sentry_config_free(struct sentry_config *sc) {
 
         sc_free(tags);
         sc_free(extra);
+        sc_free(timeout);
 
 	free(sc);
 }
@@ -293,6 +296,9 @@ static void sentry_request(struct sentry_config *sc, char *msg, size_t len) {
 	time_t now = uwsgi_now();
 
 	int timeout = uwsgi.socket_timeout;
+	if (sc->timeout) {
+		timeout = atoi(sc->timeout);
+	}
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout);
         curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, timeout);
 	curl_easy_setopt(curl, CURLOPT_URL, sc->url);
