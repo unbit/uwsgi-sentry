@@ -153,3 +153,4 @@ The following options can be specified on all sentry handlers (check sentry docs
 * debug (enable debug mode, report HTTP transactions in the logs)
 * tags (set tags, format is tags=key:value;key1:value1;key2:value2)
 * extra (set extra values, format is tags=key:value;key1:value1;key2:value2)
+* timeout (set http connection/response timeout, uses default socket timeout if not specified)
