@@ -102,7 +102,7 @@ hook-accepting1-once = sentry:dsn=https://b70a31b3510c4cf793964a185cfe1fd0:b7d80
 Managing Exceptions
 ====================
 
-Note: this features requires uWSGI >= 2.0.10 or to apply this patch: https://github.com/unbit/uwsgi/commit/c74428a3aa1aade1cca7e59b20c571a2a164dc13 (yeah a stupid bug)
+Note: this feature requires uWSGI >= 2.0.10 or to apply this patch: https://github.com/unbit/uwsgi/commit/c74428a3aa1aade1cca7e59b20c571a2a164dc13 (yeah a stupid bug)
 
 Note again: For managing exceptions use native sentry clients, use this feature when your language is not supported by sentry or the uWSGI request plugin is not a 'language handler' (like the GlusterFS, GridFS or Rados ones) but raises errors as exceptions.
 
