@@ -183,10 +183,12 @@ static int sentry_dsn_parse(struct sentry_config *sc) {
 
 	// find colon
 	char *colon = memchr(auth, ':', auth_len);
-	if (!colon) goto error;
-
-	sc->key = uwsgi_concat2n(auth, colon-auth, "", 0);
-	sc->secret = uwsgi_concat2n(colon+1, at-(colon+1), "", 0);
+	if (colon) {
+		sc->key = uwsgi_concat2n(auth, colon-auth, "", 0);
+		sc->secret = uwsgi_concat2n(colon+1, at-(colon+1), "", 0);
+	} else {
+		sc->key = uwsgi_concat2n(auth, at-auth, "", 0);
+	}
 
 	if (sc->debug) {
 		uwsgi_log("[sentry] parsed url: %s\n", sc->url);
@@ -315,12 +317,16 @@ static void sentry_request(struct sentry_config *sc, char *msg, size_t len) {
 
 	// we need a uwsgi buffer to build the X-Sentry-Auth header
 	ub_auth = uwsgi_buffer_new(uwsgi.page_size);
-	if (uwsgi_buffer_append(ub_auth, "X-Sentry-Auth: Sentry sentry_version=5, sentry_timestamp=", 57)) goto end;;
+	if (uwsgi_buffer_append(ub_auth, "X-Sentry-Auth: Sentry sentry_version=7, sentry_timestamp=", 57)) goto end;;
 	if (uwsgi_buffer_num64(ub_auth, now)) goto end;
 	if (uwsgi_buffer_append(ub_auth, ", sentry_key=", 13)) goto end;
 	if (uwsgi_buffer_append(ub_auth, sc->key, strlen(sc->key))) goto end;
-	if (uwsgi_buffer_append(ub_auth, ", sentry_client=uwsgi-sentry, sentry_secret=", 44)) goto end;
-	if (uwsgi_buffer_append(ub_auth, sc->secret, strlen(sc->secret))) goto end;
+	if (uwsgi_buffer_append(ub_auth, ", sentry_client=uwsgi-sentry", 28)) goto end;
+	if (sc->secret) {
+		if (uwsgi_buffer_append(ub_auth, ", sentry_secret=", 16)) goto end;
+		if (uwsgi_buffer_append(ub_auth, sc->secret, strlen(sc->secret))) goto end;
+	}
+
 	// null ending
 	if (uwsgi_buffer_append(ub_auth, "\0", 1)) goto end;
 
@@ -351,10 +357,9 @@ static void sentry_request(struct sentry_config *sc, char *msg, size_t len) {
 	uwsgi_uuid(uuid);
 	if (uwsgi_buffer_append(ub_body, "{\"event_id\":\"", 13)) goto end;
 	if (uwsgi_buffer_append(ub_body, uuid, 8)) goto end;
-	if (uwsgi_buffer_append(ub_body, uuid+9, 4)) goto end;
-	if (uwsgi_buffer_append(ub_body, uuid+14, 4)) goto end;
-	if (uwsgi_buffer_append(ub_body, uuid+19, 4)) goto end;
-	if (uwsgi_buffer_append(ub_body, uuid+24, 12)) goto end;
+	if (uwsgi_buffer_append(ub_body, uuid+9, 8)) goto end;
+	if (uwsgi_buffer_append(ub_body, uuid+18, 8)) goto end;
+	if (uwsgi_buffer_append(ub_body, uuid+27, 8)) goto end;
 	if (uwsgi_buffer_append(ub_body, "\"", 1)) goto end;
 
 	if (sc->level) {
